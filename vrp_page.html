@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VRP Solver - Optimisation des tournées</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            color: #7f8c8d;
+            font-size: 1.1em;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 30px;
+            height: calc(100vh - 200px);
+        }
+
+        .control-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+        }
+
+        .map-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        #map {
+            height: 100%;
+            border-radius: 15px;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 25px;
+            background: linear-gradient(145deg, #f8f9fa, #e9ecef);
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            border-left: 4px solid #667eea;
+        }
+
+        .section h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .file-upload {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+            margin-bottom: 15px;
+        }
+
+        .file-upload input[type="file"] {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-upload-btn {
+            display: block;
+            padding: 15px 20px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .file-upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .file-status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            display: none;
+        }
+
+        .file-status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .file-status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .config-group {
+            margin-bottom: 20px;
+        }
+
+        .config-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #495057;
+        }
+
+        .config-group input, .config-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .config-group input:focus, .config-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(45deg, #6c757d, #495057);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(108, 117, 125, 0.4);
+        }
+
+        .btn-export {
+            background: linear-gradient(45deg, #fd7e14, #e55a4e);
+            color: white;
+        }
+
+        .btn-export:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(253, 126, 20, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .results {
+            display: none;
+            margin-top: 30px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(145deg, #ffffff, #f8f9fa);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            border-left: 4px solid #667eea;
+        }
+
+        .stat-card .value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .label {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        .vehicle-list {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .vehicle-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .vehicle-item.unused {
+            opacity: 0.6;
+            border-left-color: #6c757d;
+        }
+
+        .vehicle-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .vehicle-name {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .vehicle-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 10px;
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .alert.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e9ecef;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .legend {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            font-size: 0.9em;
+            z-index: 1000;
+            max-width: 250px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 3px;
+            margin-right: 10px;
+            border-radius: 2px;
+        }
+
+        .route-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            font-size: 0.9em;
+            z-index: 1000;
+            min-width: 200px;
+        }
+
+        .route-control-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 6px;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .route-control-item:hover {
+            background: #e9ecef;
+            transform: translateX(2px);
+        }
+
+        .route-control-item.active {
+            background: #e3f2fd;
+            border-left: 3px solid #2196f3;
+        }
+
+        .route-toggle {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            border-radius: 3px;
+            border: 2px solid #ddd;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .route-toggle.checked {
+            border-color: #4caf50;
+            background: #4caf50;
+        }
+
+        .route-toggle.checked::after {
+            content: '✓';
+            position: absolute;
+            color: white;
+            font-size: 12px;
+            top: -2px;
+            left: 2px;
+        }
+
+        .map-overlay-controls {
+            position: absolute;
+            top: 60px;
+            left: 10px;
+            z-index: 1000;
+        }
+
+        .map-control-btn {
+            display: block;
+            width: 40px;
+            height: 40px;
+            background: white;
+            border: 2px solid #ccc;
+            border-radius: 6px;
+            margin-bottom: 5px;
+            cursor: pointer;
+            text-align: center;
+            line-height: 36px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .map-control-btn:hover {
+            background: #f0f0f0;
+            border-color: #999;
+        }
+
+        .map-control-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .depot-marker {
+            background: #e74c3c;
+            border: 3px solid white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        .client-marker {
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            
+            .map-container {
+                height: 400px;
+                order: -1;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+        }
+
+        .route-colors {
+            --route-1: #e74c3c;
+            --route-2: #3498db;
+            --route-3: #2ecc71;
+            --route-4: #f39c12;
+            --route-5: #9b59b6;
+            --route-6: #1abc9c;
+            --route-7: #e67e22;
+            --route-8: #34495e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-route"></i> VRP Solver</h1>
+            <p>Optimisation intelligente des tournées de véhicules</p>
+        </div>
+
+        <div class="alert" id="globalAlert"></div>
+
+        <div class="main-content">
+            <div class="control-panel">
+                <div class="section">
+                    <h3><i class="fas fa-upload"></i> 1. Fichiers de données</h3>
+                    
+                    <div class="file-upload">
+                        <input type="file" id="pointsFile" accept=".xlsx,.xls">
+                        <div class="file-upload-btn">
+                            <i class="fas fa-map-marker-alt"></i> Télécharger points de livraison (.xlsx)
+                        </div>
+                    </div>
+                    <div class="file-status" id="pointsStatus"></div>
+
+                    <div class="file-upload">
+                        <input type="file" id="vehiclesFile" accept=".xlsx,.xls">
+                        <div class="file-upload-btn">
+                            <i class="fas fa-truck"></i> Télécharger véhicules (.xlsx)
+                        </div>
+                    </div>
+                    <div class="file-status" id="vehiclesStatus"></div>
+                </div>
+
+                <div class="section">
+                    <h3><i class="fas fa-cog"></i> 2. Configuration</h3>
+                    
+                    <div class="config-group">
+                        <label for="depotStart">Horaire ouverture dépôt :</label>
+                        <input type="time" id="depotStart" value="08:00">
+                    </div>
+                    
+                    <div class="config-group">
+                        <label for="depotEnd">Horaire fermeture dépôt :</label>
+                        <input type="time" id="depotEnd" value="18:00">
+                    </div>
+                    
+                    <div class="config-group">
+                        <label for="speed">Vitesse moyenne (km/h) :</label>
+                        <input type="number" id="speed" value="50" min="20" max="130">
+                    </div>
+                    
+                    <div class="config-group">
+                        <label for="serviceTime">Temps de service (min) :</label>
+                        <input type="number" id="serviceTime" value="10" min="0" max="60">
+                    </div>
+                    
+                    <div class="config-group">
+                        <label for="timeLimit">Temps limite optimisation (sec) :</label>
+                        <input type="number" id="timeLimit" value="60" min="30" max="300">
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h3><i class="fas fa-play"></i> 3. Optimisation</h3>
+                    
+                    <button class="btn btn-primary" id="solveBtn" disabled>
+                        <i class="fas fa-calculator"></i> Lancer l'optimisation
+                    </button>
+                    
+                    <button class="btn btn-export" id="exportBtn" disabled>
+                        <i class="fas fa-download"></i> Exporter la solution
+                    </button>
+                    
+                    <div class="loading" id="loadingIndicator">
+                        <div class="spinner"></div>
+                        <p>Optimisation en cours...</p>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="results" id="resultsSection">
+                    <div class="section">
+                        <h3><i class="fas fa-chart-line"></i> Résultats</h3>
+                        
+                        <div class="stats-grid" id="statsGrid"></div>
+                        
+                        <div class="vehicle-list" id="vehicleList"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="map-container">
+                <div id="map"></div>
+                
+                <!-- Contrôles d'affichage de la carte -->
+                <div class="map-overlay-controls">
+                    <button class="map-control-btn active" id="showAllBtn" title="Afficher tout">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="map-control-btn" id="showDepotBtn" title="Centrer sur le dépôt">
+                        <i class="fas fa-warehouse"></i>
+                    </button>
+                    <button class="map-control-btn" id="showPointsBtn" title="Afficher seulement les points">
+                        <i class="fas fa-map-marker-alt"></i>
+                    </button>
+                </div>
+
+                <!-- Contrôles des routes -->
+                <div class="route-controls" id="routeControls" style="display: none;">
+                    <h4 style="margin-bottom: 10px; color: #2c3e50;">
+                        <i class="fas fa-route"></i> Contrôle des routes
+                    </h4>
+                    <div class="route-control-item" id="allRoutesControl">
+                        <div class="route-toggle checked" id="allRoutesToggle"></div>
+                        <div style="flex: 1;">
+                            <strong>Toutes les routes</strong>
+                            <div style="font-size: 0.8em; color: #666;">Afficher/masquer tout</div>
+                        </div>
+                    </div>
+                    <div id="individualRouteControls"></div>
+                </div>
+                
+                <!-- Légende -->
+                <div class="legend" id="mapLegend" style="display: none;">
+                    <h4 style="margin-bottom: 10px; color: #2c3e50;">
+                        <i class="fas fa-info-circle"></i> Légende
+                    </h4>
+                    <div id="legendContent"></div>
+                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;">
+                        <div class="legend-item">
+                            <div class="depot-marker" style="margin-right: 8px;"></div>
+                            Dépôt principal
+                        </div>
+                        <div class="legend-item">
+                            <div class="client-marker" style="background: #3498db; margin-right: 8px;"></div>
+                            Points de livraison
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Configuration de base
+        const API_BASE = 'http://localhost:5000/api';
+        const routeColors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
+        
+        // Variables globales
+        let map = null;
+        let markersLayer = null;
+        let routesLayer = null;
+        let currentSolution = null;
+        let routeVisibility = {}; // Pour contrôler la visibilité des routes
+        let routeLayers = {}; // Pour stocker les couches de chaque route
+        let allPoints = []; // Pour stocker tous les points
+        let depotLocation = null;
+
+        // Initialisation de l'application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMap();
+            setupEventListeners();
+            checkServerStatus();
+        });
+
+        function initializeMap() {
+            map = L.map('map').setView([48.8566, 2.3522], 6); // Centré sur Paris
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            markersLayer = L.layerGroup().addTo(map);
+            routesLayer = L.layerGroup().addTo(map);
+        }
+
+        function setupEventListeners() {
+            // Upload des fichiers
+            document.getElementById('pointsFile').addEventListener('change', function(e) {
+                uploadFile(e.target.files[0], 'points');
+            });
+
+            document.getElementById('vehiclesFile').addEventListener('change', function(e) {
+                uploadFile(e.target.files[0], 'vehicles');
+            });
+
+            // Configuration
+            const configInputs = ['depotStart', 'depotEnd', 'speed', 'serviceTime', 'timeLimit'];
+            configInputs.forEach(id => {
+                document.getElementById(id).addEventListener('change', updateConfiguration);
+            });
+
+            // Boutons d'action
+            document.getElementById('solveBtn').addEventListener('click', solveProblem);
+            document.getElementById('exportBtn').addEventListener('click', exportSolution);
+
+            // Contrôles de la carte
+            document.getElementById('showAllBtn').addEventListener('click', showAllRoutes);
+            document.getElementById('showDepotBtn').addEventListener('click', centerOnDepot);
+            document.getElementById('showPointsBtn').addEventListener('click', showPointsOnly);
+
+            // Contrôle global des routes
+            document.getElementById('allRoutesControl').addEventListener('click', toggleAllRoutes);
+        }
+
+        async function checkServerStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/status`);
+                const status = await response.json();
+                
+                if (status.solver_ready) {
+                    showAlert('Serveur connecté et prêt', 'success');
+                } else {
+                    showAlert('Problème de connexion au serveur', 'error');
+                }
+            } catch (error) {
+                showAlert('Impossible de se connecter au serveur. Vérifiez que le backend est lancé.', 'error');
+            }
+        }
+
+        async function uploadFile(file, type) {
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const statusElement = document.getElementById(`${type}Status`);
+            statusElement.style.display = 'block';
+            statusElement.className = 'file-status';
+            statusElement.textContent = 'Upload en cours...';
+
+            try {
+                const response = await fetch(`${API_BASE}/upload-${type}`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    statusElement.className = 'file-status success';
+                    statusElement.innerHTML = `<i class="fas fa-check"></i> ${result.message}`;
+                    
+                    if (type === 'points' && result.depot_info) {
+                        updateMapWithDepot(result.depot_info);
+                        showAlert(`Points chargés avec succès. Dépôt: ${result.depot_info.name}`, 'success');
+                    } else if (type === 'vehicles') {
+                        showAlert(`${result.vehicles_count} véhicules chargés. Capacité totale: ${result.total_capacity}`, 'success');
+                    }
+                    
+                    checkReadyToSolve();
+                } else {
+                    statusElement.className = 'file-status error';
+                    statusElement.innerHTML = `<i class="fas fa-times"></i> ${result.error}`;
+                    showAlert(result.error, 'error');
+                }
+            } catch (error) {
+                statusElement.className = 'file-status error';
+                statusElement.innerHTML = `<i class="fas fa-times"></i> Erreur d'upload`;
+                showAlert('Erreur lors de l\'upload du fichier', 'error');
+            }
+        }
+
+        function updateMapWithDepot(depotInfo) {
+            markersLayer.clearLayers();
+            depotLocation = [depotInfo.latitude, depotInfo.longitude];
+            
+            // Créer un marqueur personnalisé pour le dépôt
+            const depotMarker = L.circleMarker(depotLocation, {
+                radius: 12,
+                fillColor: '#e74c3c',
+                color: 'white',
+                weight: 3,
+                opacity: 1,
+                fillOpacity: 0.9
+            }).bindPopup(`
+                <div style="text-align: center;">
+                    <h4 style="margin: 0 0 5px 0; color: #e74c3c;">
+                        <i class="fas fa-warehouse"></i> ${depotInfo.name}
+                    </h4>
+                    <p style="margin: 0; color: #666;">Dépôt principal</p>
+                    <small style="color: #999;">
+                        ${depotInfo.latitude.toFixed(6)}, ${depotInfo.longitude.toFixed(6)}
+                    </small>
+                </div>
+            `);
+
+            markersLayer.addLayer(depotMarker);
+            map.setView(depotLocation, 12);
+        }
+
+        // Nouvelles fonctions de contrôle de la carte
+        function showAllRoutes() {
+            document.querySelectorAll('.map-control-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('showAllBtn').classList.add('active');
+            
+            if (routesLayer) routesLayer.addTo(map);
+            if (markersLayer) markersLayer.addTo(map);
+            
+            if (allPoints.length > 0) {
+                const group = new L.featureGroup([...markersLayer.getLayers(), ...routesLayer.getLayers()]);
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
+        }
+
+        function centerOnDepot() {
+            document.querySelectorAll('.map-control-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('showDepotBtn').classList.add('active');
+            
+            if (depotLocation) {
+                map.setView(depotLocation, 14);
+            }
+        }
+
+        function showPointsOnly() {
+            document.querySelectorAll('.map-control-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('showPointsBtn').classList.add('active');
+            
+            if (routesLayer) map.removeLayer(routesLayer);
+            if (markersLayer) markersLayer.addTo(map);
+            
+            if (markersLayer.getLayers().length > 0) {
+                const group = new L.featureGroup(markersLayer.getLayers());
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
+        }
+
+        function toggleAllRoutes() {
+            const toggle = document.getElementById('allRoutesToggle');
+            const isVisible = toggle.classList.contains('checked');
+            
+            if (isVisible) {
+                // Masquer toutes les routes
+                toggle.classList.remove('checked');
+                Object.values(routeLayers).forEach(layer => map.removeLayer(layer));
+                Object.keys(routeVisibility).forEach(key => routeVisibility[key] = false);
+            } else {
+                // Afficher toutes les routes
+                toggle.classList.add('checked');
+                Object.values(routeLayers).forEach(layer => map.addLayer(layer));
+                Object.keys(routeVisibility).forEach(key => routeVisibility[key] = true);
+            }
+            
+            updateIndividualRouteControls();
+        }
+
+        function toggleRoute(routeId) {
+            const isVisible = routeVisibility[routeId];
+            
+            if (isVisible) {
+                map.removeLayer(routeLayers[routeId]);
+                routeVisibility[routeId] = false;
+            } else {
+                map.addLayer(routeLayers[routeId]);
+                routeVisibility[routeId] = true;
+            }
+            
+            updateRouteControlUI(routeId);
+            updateAllRoutesToggle();
+        }
+
+        function updateRouteControlUI(routeId) {
+            const toggle = document.getElementById(`routeToggle_${routeId}`);
+            if (toggle) {
+                if (routeVisibility[routeId]) {
+                    toggle.classList.add('checked');
+                } else {
+                    toggle.classList.remove('checked');
+                }
+            }
+        }
+
+        function updateAllRoutesToggle() {
+            const allVisible = Object.values(routeVisibility).every(visible => visible);
+            const toggle = document.getElementById('allRoutesToggle');
+            
+            if (allVisible) {
+                toggle.classList.add('checked');
+            } else {
+                toggle.classList.remove('checked');
+            }
+        }
+
+        function updateIndividualRouteControls() {
+            Object.keys(routeVisibility).forEach(routeId => {
+                updateRouteControlUI(routeId);
+            });
+        }
+
+        async function updateConfiguration() {
+            const config = {
+                depot_time_window_start: document.getElementById('depotStart').value,
+                depot_time_window_end: document.getElementById('depotEnd').value,
+                speed: parseInt(document.getElementById('speed').value),
+                service_time: parseInt(document.getElementById('serviceTime').value),
+                time_limit: parseInt(document.getElementById('timeLimit').value)
+            };
+
+            try {
+                const response = await fetch(`${API_BASE}/configure`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+
+                const result = await response.json();
+                if (!result.success) {
+                    showAlert('Erreur de configuration: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showAlert('Erreur lors de la mise à jour de la configuration', 'error');
+            }
+        }
+
+        function checkReadyToSolve() {
+            const pointsUploaded = document.getElementById('pointsStatus').classList.contains('success');
+            const vehiclesUploaded = document.getElementById('vehiclesStatus').classList.contains('success');
+            
+            document.getElementById('solveBtn').disabled = !(pointsUploaded && vehiclesUploaded);
+        }
+
+        async function solveProblem() {
+            const solveBtn = document.getElementById('solveBtn');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const progressFill = document.getElementById('progressFill');
+
+            solveBtn.disabled = true;
+            loadingIndicator.style.display = 'block';
+            
+            // Animation de progression
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress > 90) progress = 90;
+                progressFill.style.width = progress + '%';
+            }, 500);
+
+            try {
+                const response = await fetch(`${API_BASE}/solve`, {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+
+                clearInterval(progressInterval);
+                progressFill.style.width = '100%';
+
+                if (result.success) {
+                    currentSolution = result;
+                    displayResults(result);
+                    await loadRouteGeometries();
+                    showAlert('Optimisation terminée avec succès!', 'success');
+                    document.getElementById('exportBtn').disabled = false;
+                } else {
+                    showAlert('Erreur d\'optimisation: ' + result.error, 'error');
+                }
+            } catch (error) {
+                clearInterval(progressInterval);
+                showAlert('Erreur lors de l\'optimisation', 'error');
+            } finally {
+                loadingIndicator.style.display = 'none';
+                solveBtn.disabled = false;
+                progressFill.style.width = '0%';
+            }
+        }
+
+        function displayResults(solution) {
+            const resultsSection = document.getElementById('resultsSection');
+            const statsGrid = document.getElementById('statsGrid');
+            const vehicleList = document.getElementById('vehicleList');
+
+            // Affichage des statistiques
+            statsGrid.innerHTML = `
+                <div class="stat-card">
+                    <div class="value">${solution.summary.vehicles_used}</div>
+                    <div class="label">Véhicules utilisés</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value">${(solution.summary.total_distance / 1000).toFixed(1)} km</div>
+                    <div class="label">Distance totale</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value">${solution.summary.total_clients}</div>
+                    <div class="label">Clients servis</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value">${solution.summary.avg_fill_rate.toFixed(1)}%</div>
+                    <div class="label">Taux de remplissage</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value">${solution.summary.global_efficiency.toFixed(1)}%</div>
+                    <div class="label">Efficacité globale</div>
+                </div>
+                <div class="stat-card">
+                    <div class="value">${solution.summary.total_load}</div>
+                    <div class="label">Charge totale</div>
+                </div>
+            `;
+
+            // Affichage des véhicules
+            vehicleList.innerHTML = '<h4 style="margin-bottom: 15px;">Détail des véhicules</h4>';
+            
+            solution.vehicle_stats.forEach((vehicle, index) => {
+                const usedClass = vehicle.used ? '' : 'unused';
+                const color = vehicle.used ? routeColors[index % routeColors.length] : '#6c757d';
+                
+                vehicleList.innerHTML += `
+                    <div class="vehicle-item ${usedClass}" style="border-left-color: ${color};">
+                        <div class="vehicle-header">
+                            <span class="vehicle-name">
+                                <i class="fas fa-truck" style="color: ${color};"></i>
+                                Conducteur ${vehicle.id}
+                            </span>
+                            <span style="color: ${color}; font-weight: bold;">
+                                ${vehicle.used ? 'En service' : 'Non utilisé'}
+                            </span>
+                        </div>
+                        <div class="vehicle-stats">
+                            <div><strong>Capacité:</strong> ${vehicle.capacity}</div>
+                            <div><strong>Charge:</strong> ${vehicle.load}</div>
+                            <div><strong>Remplissage:</strong> ${vehicle.fill_rate.toFixed(1)}%</div>
+                            <div><strong>Distance:</strong> ${(vehicle.distance / 1000).toFixed(1)} km</div>
+                            <div><strong>Clients:</strong> ${vehicle.clients}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            resultsSection.style.display = 'block';
+        }
+
+        async function loadRouteGeometries() {
+            try {
+                const response = await fetch(`${API_BASE}/route-geometries`);
+                const result = await response.json();
+
+                if (result.success) {
+                    displayRoutesOnMap(result.routes_geometries);
+                    updateMapLegend(result.routes_geometries);
+                }
+            } catch (error) {
+                console.error('Erreur lors du chargement des géométries:', error);
+            }
+        }
+
+        function displayRoutesOnMap(routesGeometries) {
+            // Nettoyer les couches existantes
+            if (routesLayer) map.removeLayer(routesLayer);
+            routesLayer = L.layerGroup();
+            routeLayers = {};
+            routeVisibility = {};
+            allPoints = [];
+
+            // Créer les couches individuelles pour chaque route
+            routesGeometries.forEach((route, routeIndex) => {
+                const color = routeColors[routeIndex % routeColors.length];
+                const routeLayer = L.layerGroup();
+                
+                route.segments.forEach(segment => {
+                    if (segment.coordinates && segment.coordinates.length > 0) {
+                        const polyline = L.polyline(segment.coordinates.map(coord => [coord[1], coord[0]]), {
+                            color: color,
+                            weight: 4,
+                            opacity: 0.8
+                        }).bindPopup(`
+                            <div style="text-align: center;">
+                                <h4 style="margin: 0 0 5px 0; color: ${color};">
+                                    <i class="fas fa-route"></i> Route Conducteur ${route.driver_id}
+                                </h4>
+                                <p style="margin: 0;">${segment.from_name} → ${segment.to_name}</p>
+                            </div>
+                        `);
+
+                        routeLayer.addLayer(polyline);
+
+                        // Ajouter les points aux coordonnées pour le zoom
+                        segment.coordinates.forEach(coord => {
+                            allPoints.push([coord[1], coord[0]]);
+                        });
+                    }
+                });
+
+                routeLayers[route.vehicle_id] = routeLayer;
+                routeVisibility[route.vehicle_id] = true;
+                routesLayer.addLayer(routeLayer);
+            });
+
+            // Ajouter les marqueurs pour tous les points
+            markersLayer.clearLayers();
+            if (currentSolution && currentSolution.routes) {
+                const addedLocations = new Set();
+                
+                // Ajouter le dépôt en premier
+                if (depotLocation) {
+                    const depotMarker = L.circleMarker(depotLocation, {
+                        radius: 12,
+                        fillColor: '#e74c3c',
+                        color: 'white',
+                        weight: 3,
+                        opacity: 1,
+                        fillOpacity: 0.9
+                    }).bindPopup(`
+                        <div style="text-align: center;">
+                            <h4 style="margin: 0 0 5px 0; color: #e74c3c;">
+                                <i class="fas fa-warehouse"></i> Dépôt principal
+                            </h4>
+                            <p style="margin: 0; color: #666;">Point de départ et retour</p>
+                        </div>
+                    `);
+                    markersLayer.addLayer(depotMarker);
+                    addedLocations.add(`${depotLocation[0]},${depotLocation[1]}`);
+                }
+                
+                currentSolution.routes.forEach((route, routeIndex) => {
+                    const color = routeColors[routeIndex % routeColors.length];
+                    
+                    route.forEach((point, pointIndex) => {
+                        const locationKey = `${point.location[0]},${point.location[1]}`;
+                        
+                        if (!addedLocations.has(locationKey) && point.index !== 0) {
+                            addedLocations.add(locationKey);
+                            
+                            const clientMarker = L.circleMarker([point.location[0], point.location[1]], {
+                                radius: 8,
+                                fillColor: color,
+                                color: 'white',
+                                weight: 2,
+                                opacity: 1,
+                                fillOpacity: 0.9
+                            }).bindPopup(`
+                                <div style="text-align: center;">
+                                    <h4 style="margin: 0 0 5px 0; color: ${color};">
+                                        <i class="fas fa-map-marker-alt"></i> ${point.name}
+                                    </h4>
+                                    <p style="margin: 0;"><strong>Conducteur:</strong> ${point.driver_id}</p>
+                                    <p style="margin: 0;"><strong>Arrivée:</strong> ${point.arrival}</p>
+                                    <p style="margin: 0;"><strong>Charge:</strong> ${point.load}</p>
+                                    <small style="color: #999;">
+                                        ${point.location[0].toFixed(6)}, ${point.location[1].toFixed(6)}
+                                    </small>
+                                </div>
+                            `);
+
+                            markersLayer.addLayer(clientMarker);
+                        }
+                    });
+                });
+            }
+
+            // Ajouter toutes les couches à la carte
+            routesLayer.addTo(map);
+            markersLayer.addTo(map);
+
+            // Créer les contrôles individuels des routes
+            createRouteControls(routesGeometries);
+
+            // Ajuster la vue de la carte
+            if (allPoints.length > 0 || markersLayer.getLayers().length > 0) {
+                const allLayers = [...markersLayer.getLayers(), ...routesLayer.getLayers()];
+                if (allLayers.length > 0) {
+                    const group = new L.featureGroup(allLayers);
+                    map.fitBounds(group.getBounds().pad(0.1));
+                }
+            }
+        }
+
+        function createRouteControls(routesGeometries) {
+            const controlsContainer = document.getElementById('individualRouteControls');
+            const routeControlsPanel = document.getElementById('routeControls');
+            
+            controlsContainer.innerHTML = '';
+            
+            routesGeometries.forEach((route, index) => {
+                if (route.segments.length > 0) {
+                    const color = routeColors[index % routeColors.length];
+                    const clientCount = route.segments.length; // Approximation du nombre de clients
+                    
+                    const controlElement = document.createElement('div');
+                    controlElement.className = 'route-control-item';
+                    controlElement.innerHTML = `
+                        <div class="route-toggle checked" id="routeToggle_${route.vehicle_id}"></div>
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center;">
+                                <div style="width: 15px; height: 15px; background: ${color}; border-radius: 50%; margin-right: 8px;"></div>
+                                <strong>Conducteur ${route.driver_id}</strong>
+                            </div>
+                            <div style="font-size: 0.8em; color: #666;">${clientCount} arrêts</div>
+                        </div>
+                    `;
+                    
+                    controlElement.addEventListener('click', () => toggleRoute(route.vehicle_id));
+                    controlsContainer.appendChild(controlElement);
+                }
+            });
+            
+            routeControlsPanel.style.display = 'block';
+        }
+
+        function updateMapLegend(routesGeometries) {
+            const legend = document.getElementById('mapLegend');
+            const legendContent = document.getElementById('legendContent');
+            
+            legendContent.innerHTML = '';
+            
+            routesGeometries.forEach((route, index) => {
+                if (route.segments.length > 0) {
+                    const color = routeColors[index % routeColors.length];
+                    const clientCount = route.segments.length;
+                    
+                    legendContent.innerHTML += `
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: ${color};"></div>
+                            <div>
+                                <strong>Conducteur ${route.driver_id}</strong>
+                                <div style="font-size: 0.8em; color: #666;">${clientCount} arrêts</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            
+            legend.style.display = routesGeometries.length > 0 ? 'block' : 'none';
+        }
+
+        async function exportSolution() {
+            try {
+                const response = await fetch(`${API_BASE}/export`);
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `vrp_solution_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.xlsx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    showAlert('Solution exportée avec succès!', 'success');
+                } else {
+                    showAlert('Erreur lors de l\'export', 'error');
+                }
+            } catch (error) {
+                showAlert('Erreur lors de l\'export', 'error');
+            }
+        }
+
+        function showAlert(message, type) {
+            const alert = document.getElementById('globalAlert');
+            alert.className = `alert ${type}`;
+            alert.textContent = message;
+            alert.style.display = 'block';
+            
+            setTimeout(() => {
+                alert.style.display = 'none';
+            }, 5000);
+        }
+
+    </script>
+</body>
+</html>
